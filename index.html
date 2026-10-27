@@ -125,6 +125,10 @@
   }
   .side-card .placeholder { aspect-ratio: 4/3; display: grid; place-items: center; background: var(--night); color: #8b93bd; font-size: 13px; }
 
+  .reroll {
+    display: block; margin: 10px auto 2px; padding: 8px 22px; font-family: inherit; font-size: 14px;
+    background: #fff; color: var(--ink); border: 2px solid var(--wood); border-radius: 20px; cursor: pointer;
+  }
   .persist { font-size: 12px; color: #8a744c; font-style: italic; margin-top: 10px; }
 
   .cta {
@@ -352,15 +356,17 @@
 </div>
 
 <script>
+// Ordered so the two sides of each physical tile land in the same grid column:
+// [fronts of tiles 1-4] then [backs of tiles 1-4].
 const BADGES = [
   { id:'b1', name:'Bottom-shelf zoo', text:'One tile of each ingredient on the bottom level.', img:'art/b1.png', pair:'b7' },
   { id:'b2', name:'Label collector', text:'Fulfil at least 6 shelf labels.', img:'art/b2.png', pair:'b8' },
   { id:'b3', name:'Golden floors', text:'3+ gold lids top, 2+ middle, 1+ bottom.', img:'art/b3.png', pair:'b5' },
   { id:'b4', name:'Silver neighbourhood', text:'5 adjacent silver-lid tiles.', img:'art/b4.png', pair:'b6' },
-  { id:'b5', name:'Chain of 4', text:'4 consecutive numbers on one level.', img:'art/b5.png', pair:'b3' },
-  { id:'b6', name:'Triple number', text:'3 tiles with the same number in a column.', img:'art/b6.png', pair:'b4' },
   { id:'b7', name:'Special column', text:'2 blue-lid tiles in a column.', img:'art/b7.png', pair:'b1' },
   { id:'b8', name:'Pure column', text:'3 tiles with the same ingredient in a column.', img:'art/b8.png', pair:'b2' },
+  { id:'b5', name:'Chain of 4', text:'4 consecutive numbers on one level.', img:'art/b5.png', pair:'b3' },
+  { id:'b6', name:'Triple number', text:'3 tiles with the same number in a column.', img:'art/b6.png', pair:'b4' },
 ];
 const ING = [
   { key:'toadstool', img:'art/ing_toadstool.png', name:'Toadstool' },
@@ -392,13 +398,26 @@ function segInit() {
   });
 }
 
+function pickN(arr, n) {
+  const pool = [...arr];
+  const out = [];
+  while (out.length < n && pool.length) {
+    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  return out;
+}
+
+function rerollButton(what) {
+  return `<button class="reroll" data-reroll="${what}">🎲 Re-roll</button>`;
+}
+
 function render(what, m) {
   if (what === 'badges' && m === 'manual') renderBadgeGrid();
   if (what === 'badges' && m === 'random') {
-    if (!state.badgesRandom) state.badgesRandom = [...BADGES].sort(() => Math.random() - .5).slice(0, 2).map(b => b.id);
+    if (!state.badgesRandom) state.badgesRandom = pickN(BADGES, 2).map(b => b.id);
     const pick = state.badgesRandom.map(id => BADGES.find(b => b.id === id));
     document.getElementById('badges-random').innerHTML = pick.map(b =>
-      `<div class="chosen-badge"><img src="${b.img}"><span><b>${b.name}</b><small>${b.text}</small></span></div>`).join('');
+      `<div class="chosen-badge"><img src="${b.img}"><span><b>${b.name}</b><small>${b.text}</small></span></div>`).join('') + rerollButton(what);
   }
   if (what === 'scrolls' && m === 'manual') renderScrollTable();
   if (what === 'scrolls' && m === 'random') {
@@ -409,7 +428,7 @@ function render(what, m) {
       ? `<img class="face-inline" src="art/scroll.png">`
       : ING.map(i => `<img class="face-inline" src="art/sc_${i.key}_${s}.png">`).join('');
     document.getElementById('scrolls-random').innerHTML =
-      `<div class="chosen-badge"><b style="font-size:18px">${s === 'Large' ? 'Large scroll' : 'Set ' + s}</b><small>whole table plays the same set</small></div>${faces}`;
+      `<div class="chosen-badge"><b style="font-size:18px">${s === 'Large' ? 'Large scroll' : 'Set ' + s}</b><small>whole table plays the same set</small></div>${faces}` + rerollButton(what);
   }
   if (what === 'side' && m === 'manual') {
     document.querySelectorAll('.side-card').forEach(c => {
@@ -423,7 +442,7 @@ function render(what, m) {
     if (!state.sideRandom) state.sideRandom = Math.random() < .5 ? 'A' : 'B';
     const s = state.sideRandom;
     document.getElementById('side-random').innerHTML =
-      `<div class="chosen-badge"><b style="font-size:18px">Side ${s}</b><small>same side for every player</small></div>`;
+      `<div class="chosen-badge"><b style="font-size:18px">Side ${s}</b><small>same side for every player</small></div>` + rerollButton(what);
   }
 }
 
@@ -494,6 +513,13 @@ document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click
 const saved = load();
 if (saved) Object.assign(state, saved);
 segInit();
+for (const what of ['badges', 'scrolls', 'side']) {
+  document.getElementById(`${what}-random`).addEventListener('click', e => {
+    if (!e.target.closest('[data-reroll]')) return;
+    state[`${what}Random`] = null;
+    render(what, 'random'); save();
+  });
+}
 // restore modes
 document.querySelectorAll('.seg').forEach(seg => {
   const m = state.mode[seg.dataset.what] || 'manual';
